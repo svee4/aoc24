@@ -1,4 +1,6 @@
-﻿const string TestInput = """
+﻿using System.Text.RegularExpressions;
+
+const string TestInput = """
 3   4
 4   3
 2   5
@@ -7,28 +9,18 @@
 3   3
 """;
 
-List<int> left = [];
-List<int> right = [];
+var combined = File.ReadAllLines("input.txt")
+    .Select(line => Regex.Matches(line, @"(\d+)\S+(\d+)"))
+    .Select(match => new { Left = int.Parse(match[0].Value), Right = int.Parse(match[1].Value) });
 
-var input = File.ReadAllText("input.txt");
-//var input = TestInput;
+var part1 = combined.Select(thing => thing.Left).Order()
+    .Zip(combined.Select(thing => thing.Right).Order())
+    .Select(tuple => Math.Max(tuple.First, tuple.Second) - Math.Min(tuple.First, tuple.Second))
+    .Sum();
 
-foreach (var line in input.Split(Environment.NewLine))
-{
-    var splits = line.Split(' ');
-    left.Add(int.Parse(splits.First()));
-    right.Add(int.Parse(splits.Last()));
-}
+Console.WriteLine($"Part 1: {part1}");
 
-left.Sort();
-right.Sort();
-
-var total = left.Zip(right).Select(tuple => Math.Max(tuple.First, tuple.Second) - Math.Min(tuple.First, tuple.Second)).Sum();
-Console.WriteLine($"Part 1: {total}");
-
-var occurrences = right.GroupBy(v => v).ToDictionary(g => g.Key, g => g.Count());
-
-var part2 = left.Select(i => i * occurrences.GetValueOrDefault(i, 0)).Sum();
+var occurrences = combined.Select(thing => thing.Right).GroupBy(v => v).ToDictionary(g => g.Key, g => g.Count());
+var part2 = combined.Select(thing => thing.Left).Select(i => i * occurrences.GetValueOrDefault(i, 0)).Sum();
 
 Console.WriteLine($"Part 2: {part2}");
-
