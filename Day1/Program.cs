@@ -15,7 +15,7 @@ var combined = File.ReadAllLines("input.txt")
 
 var part1 = combined.Select(thing => thing.Left).Order()
     .Zip(combined.Select(thing => thing.Right).Order())
-    .Select(tuple => Math.Max(tuple.First, tuple.Second) - Math.Min(tuple.First, tuple.Second))
+    .Select(tuple => Math.Abs(tuple.First - tuple.Second))
     .Sum();
 
 Console.WriteLine($"Part 1: {part1}");
