@@ -1,4 +1,7 @@
 ﻿using System.Reflection.Metadata.Ecma335;
+using System.Runtime.CompilerServices;
+using System.Runtime.Intrinsics;
+using System.Text;
 
 const string TestInput = """
 7 6 4 2 1
@@ -13,6 +16,7 @@ var input = TestInput;
 input = File.ReadAllText("input.txt");
 
 var part1 = 0;
+List<(int[] Input, bool Expected)> samples = [];
 
 foreach (var line in input.Split(Environment.NewLine))
 {
@@ -60,6 +64,8 @@ foreach (var line in input.Split(Environment.NewLine))
     {
         //Console.WriteLine($"{string.Join(", ", levels)}: UNSAFE");
     }
+
+    samples.Add((levels.ToArray(), safe));
 }
 
 Console.WriteLine($"Part 1: {part1 == 421}");
@@ -110,6 +116,113 @@ if (part2 == 476)
 else
 {
     Console.WriteLine($"Part2 expected: 476 actual: {part2}");
+}
+
+int SampleCount = samples.Count;
+var sampleResults = new bool[SampleCount];
+foreach (var (index, sample) in samples.Take(SampleCount).Index())
+{
+
+    List<string> log = [];
+    var logger = log.Add;
+
+    var result = IsSafeReportSpanParallel(sample.Input, logger);
+    if (sample.Expected != result)
+    {
+        Console.WriteLine();
+        Console.WriteLine($"Expected: {sample.Expected}, actual: {result}");
+        Console.WriteLine(string.Join("\n", log));
+    }
+
+    sampleResults[index] = sample.Expected == result;
+}
+
+Console.WriteLine();
+//Console.WriteLine($"results:\n\n{string.Join("\n", sampleResults)}");
+
+static bool IsSafeReportSpanParallel(ReadOnlySpan<int> reportInput, Action<string> logger)
+{
+    // assumes that the maximum length of one report is 8 levels
+    // assumes that there is no 0 or negative levels
+
+    var length = reportInput.Length;
+
+    var reportSpan = (Span<int>)stackalloc int[8];
+    reportInput.CopyTo(reportSpan);
+
+    var report = Vector256.Create<int>(reportSpan);
+    var shiftedOneRight = Vector256.Shuffle(report, Vector256.Create([-1, 0, 1, 2, 3, 4, 5, 6, 7]));
+
+    var conditionalSelectVector = Vector256.Negate(Vector256.Min(report, Vector256<int>.One));
+    conditionalSelectVector = conditionalSelectVector.WithElement(0, 0);
+
+    LogVec(conditionalSelectVector, "condsel");
+    LogVec(report);
+    LogVec(shiftedOneRight, "shifted");
+
+    var diffs = Vector256.Subtract(shiftedOneRight, report);
+    LogVec(diffs);
+
+    // if any in Abs(diffs) is < 1 or > 3 its invalid
+
+    var abs = Vector256.Abs(diffs);
+    LogVec(abs, "absbfr");
+    LogVec(conditionalSelectVector, "condsel");
+
+    abs = Vector256.ConditionalSelect(conditionalSelectVector, abs, Vector256<int>.One);
+    LogVec(abs);
+
+    if (Vector256.LessThanAny(abs, Vector256.Create(1)))
+    {
+        logger("False due to less than 1");
+        return false;
+    }
+
+    if (Vector256.GreaterThanAny(abs, Vector256.Create(3)))
+    {
+        logger("False due to greater than 3");
+        return false;
+    }
+
+    // all diffs should be either negative or positive, indicating growth or decline.
+    // that means either all high bits are set or all are unset.
+    // if any value differs from the others then the direction is changing
+
+    // but first we need to patch this up too
+    // the value doesnt matter as long as its a valid diff, ie not at index 0 or index >= length
+    var diffsPatched = Vector256.ConditionalSelect(conditionalSelectVector, diffs, Vector256.Create(diffs[1]));
+
+    LogVec(diffsPatched, "diffsp");
+
+    var highBits = (byte)Vector256.ExtractMostSignificantBits(diffsPatched);
+    logger($"highBits: {highBits:b8}");
+
+    if (highBits is not (byte.MinValue or byte.MaxValue))
+    {
+        logger("False due to highBits did not have all or nothing set");
+        return false;
+    }
+
+    return true;
+
+    void LogVec<T>(Vector256<T> vec, [CallerArgumentExpression(nameof(vec))] string name = "") where T : struct
+    {
+        logger($"{name,-8}: {Vec2Str(vec)}");
+    }
+
+    static string Vec2Str<T>(Vector256<T> vec) where T : struct
+    {
+        return string.Join(", ",
+            VecNumerator(vec).Select(v => $"{v,3}"));
+
+        static IEnumerable<T> VecNumerator(Vector256<T> source)
+        {
+            for (var i = 0; i < Vector256<T>.Count; i++)
+            {
+                yield return source[i];
+            }
+        }
+    }
 }
 
 static bool IsSafeReportSpan(ReadOnlySpan<int> report, int removeIndex = -1)
@@ -190,4 +303,10 @@ static bool IsSafeReport(List<int> report)
     }
 
     return index == -1;
+}
+
+[InlineArray(8)]
+struct Buffer8<T>
+{
+    private T _0;
 }
