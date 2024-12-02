@@ -231,10 +231,9 @@ static bool IsSafeReportSpanParallelOptimized(ReadOnlySpan<int> reportInput, int
 
 	var report = Vector256.Create<int>(reportSpan);
 	var shiftedOneRight = Vector256.Shuffle(report, Vector256.Create([-1, 0, 1, 2, 3, 4, 5, 6, 7]));
-	var diffs = Vector256.Subtract(shiftedOneRight, report);
+	var diffs = Vector256.Subtract(report, shiftedOneRight);
 
-	var conditionalSelectVector = Vector256.Negate(Vector256.Min(report, Vector256<int>.One));
-	conditionalSelectVector = conditionalSelectVector.WithElement(0, 0);
+	var conditionalSelectVector = Vector256.Negate(Vector256.Min(report, Vector256<int>.One)).WithElement(0, 0);
 
 	var ranges = Vector256.ConditionalSelect(conditionalSelectVector, Vector256.Abs(diffs), Vector256<int>.One);
 	if (Vector256.LessThanAny(ranges, Vector256.Create(1))
