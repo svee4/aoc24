@@ -27,7 +27,7 @@ var input = File.ReadAllText("input.txt");
 		.Aggregate(
 			new Alligator(Sum: 0, Enabled: true),
 			(cum, match) =>
-				 match.Groups["mul"].Success && cum.Enabled
+				match.Groups["mul"].Success && cum.Enabled
 					? cum with { Sum = cum.Sum + int.Parse(match.Groups["n1"].Value) * int.Parse(match.Groups["n2"].Value) }
 					: match.Groups["dont"].Success
 					? cum with { Enabled = false }
