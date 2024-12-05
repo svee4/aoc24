@@ -36,6 +36,7 @@ for (var i = 0; i < input.Length; i++)
 var map = letters.ToDictionary(letter => letter.Coord, letter => letter.Character);
 
 Part1();
+Part2();
 
 void Part1()
 {
@@ -107,8 +108,47 @@ void Part1()
 	}
 
 	Console.WriteLine($"Part1: {part1}");
+}
 
 
+void Part2()
+{
+	var part2 = 0;
+
+	foreach (var letter in letters.Where(letter => letter.Character == 'A'))
+	{
+
+		if (IsMASAuto(map, letter.Coord.NorthBy(1).WestBy(1), Extensions.EastBy, Extensions.SouthBy)
+			|| IsMASAuto(map, letter.Coord.SouthBy(1).EastBy(1), Extensions.WestBy, Extensions.NorthBy))
+		{
+			/*
+			M..    S..
+			.A. or .A.
+			..S    ..M
+			*/
+
+			if (IsMASAuto(map, letter.Coord.NorthBy(1).EastBy(1), Extensions.WestBy, Extensions.SouthBy)
+				|| IsMASAuto(map, letter.Coord.SouthBy(1).WestBy(1), Extensions.EastBy, Extensions.NorthBy))
+			{
+				part2++;
+			}
+		}
+
+		static bool IsMASAuto(Dictionary<Coord, char> map, Coord start, params Func<Coord, int, Coord>[] byers)
+		{
+			Coord Byer(int by) => byers.Aggregate(start, (cur, func) => func(cur, by));
+
+			return IsMAS([
+				map.GetValueOrDefault(start),
+				map.GetValueOrDefault(Byer(1)),
+				map.GetValueOrDefault(Byer(2)),
+			]);
+
+			static bool IsMAS(ReadOnlySpan<char> value) => value is "MAS";
+		}
+	}
+
+	Console.WriteLine($"Part2: {part2}");
 }
 
 record Letter(char Character, int X, int Y)
